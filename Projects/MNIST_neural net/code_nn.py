@@ -1,14 +1,15 @@
 #Hasan ->
 # Neural network classification on tensorflow
 # Character recognition on MNIST database using 4 layer Deep Neural Net
+# Achieved Test Set accuracy of 98%
 import numpy as np
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
 #Define parameters for the model
 learning_rate = 0.005
-batch_size = 100
-n_epochs = 5
+batch_size = 100        #Size of temporary train set batched out from full train set
+n_epochs = 10           #Number of full train set repetitions of trainings
 
 #Neural network structure
 #L0 = 784
@@ -22,7 +23,8 @@ MNIST = input_data.read_data_sets("/data/mnist", one_hot=True)
 
 #Prepare placeholders
 X = tf.placeholder(tf.float32, [batch_size, 784], name="image")
-Y = tf.placeholder(tf.float32, [batch_size, 10], name="label")
+Y = tf.placeholder(tf.float32, [batch_size, 10], name="label")
+
 
 #Create tensorflow variables for weight and biases => Variables are trainable
 W1 = tf.Variable(tf.truncated_normal([784, L1], stddev=0.1))        #(1,50)
@@ -52,7 +54,8 @@ Ylogits = tf.matmul(Y4,  W5) + B5       #(inputsize * 10 matrix)
 Y_ = tf.nn.softmax(Ylogits)             #(inputsize * 10 matrix)
 
 #3. use softmax cross entropy with logits as the loss function
-# compute mean cross entropy, softmax is applied internally
+# compute mean cross entropy, softmax is applied internally
+
 entropy =   tf.nn.softmax_cross_entropy_with_logits(logits=Ylogits, labels=Y) #(input * 1 matrix )
 loss    =   tf.reduce_mean(entropy)
 
