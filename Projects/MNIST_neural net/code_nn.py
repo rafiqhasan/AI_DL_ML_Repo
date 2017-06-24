@@ -1,4 +1,6 @@
-#Hasan -> Logistic regression on tensorflow
+#Hasan ->
+# Neural network classification on tensorflow
+# Character recognition on MNIST database using 4 layer Deep Neural Net
 import numpy as np
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
