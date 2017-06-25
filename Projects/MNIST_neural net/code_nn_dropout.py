@@ -2,7 +2,7 @@
 # Neural network classification on tensorflow
 # Character recognition on MNIST database using 4 layer Deep Neural Net
 # With Dropout setting
-# Achieved Test Set accuracy of 98%
+# Achieved Final Test Set accuracy of 98%
 import numpy as np
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
@@ -24,35 +24,38 @@ MNIST = input_data.read_data_sets("/data/mnist", one_hot=True)
 
 #Prepare placeholders
 #For X, Y and dropout
-X = tf.placeholder(tf.float32, [batch_size, 784], name="image")
-Y = tf.placeholder(tf.float32, [batch_size, 10], name="label")
+X = tf.placeholder(tf.float32, name="image")
+Y = tf.placeholder(tf.float32, name="label")
 #Dropout: feed in 1 when testing, 0.75 when training
 pkeep = tf.placeholder(tf.float32, name="Dropout_pkeep")
 
 #Create tensorflow variables for weight and biases => Variables are trainable
-W1 = tf.Variable(tf.truncated_normal([784, L1], stddev=0.1))        #(1,50)
+W1 = tf.Variable(tf.truncated_normal([784, L1], stddev=0.1))        #(784,L1)
 B1 = tf.Variable(tf.ones([L1])/10)                                  #Biases should be one in a ReLu NN
-W2 = tf.Variable(tf.truncated_normal([L1, L2], stddev=0.1))         #(50,40)
+W2 = tf.Variable(tf.truncated_normal([L1, L2], stddev=0.1))         #
 B2 = tf.Variable(tf.ones([L2])/10)                                  #Biases should be one in a ReLu NN
-W3 = tf.Variable(tf.truncated_normal([L2, L3], stddev=0.1))         #(40,40)
+W3 = tf.Variable(tf.truncated_normal([L2, L3], stddev=0.1))         #
 B3 = tf.Variable(tf.ones([L3])/10)                                  #Biases should be one in a ReLu NN
-W4 = tf.Variable(tf.truncated_normal([L3, L4], stddev=0.1))         #(40,20)
+W4 = tf.Variable(tf.truncated_normal([L3, L4], stddev=0.1))         #
 B4 = tf.Variable(tf.ones([L4])/10)                                  #Biases should be one in a ReLu NN
-W5 = tf.Variable(tf.truncated_normal([L4, 10], stddev=0.1))          #(20,10)
+W5 = tf.Variable(tf.truncated_normal([L4, 10], stddev=0.1))         #(L4,10)
 B5 = tf.Variable(tf.zeros([10]))                                    #Ten outputs
 
 #Create tensorflow computation code
 Y1  = tf.nn.relu(tf.matmul(X,   W1) + B1)
 Y1d = tf.nn.dropout(Y1, pkeep)                                      #Apply dropout probability in layer 1
 Y2  = tf.nn.relu(tf.matmul(Y1d,  W2) + B2)
-Y3  = tf.nn.relu(tf.matmul(Y2,  W3) + B3)
-Y4  = tf.nn.relu(tf.matmul(Y3,  W4) + B4)
+Y2d = tf.nn.dropout(Y2, pkeep)                                      #Apply dropout probability in layer 2
+Y3  = tf.nn.relu(tf.matmul(Y2d,  W3) + B3)
+Y3d = tf.nn.dropout(Y3, pkeep)                                      #Apply dropout probability in layer 3
+Y4  = tf.nn.relu(tf.matmul(Y3d,  W4) + B4)
+Y4d = tf.nn.dropout(Y4, pkeep)                                      #Apply dropout probability in layer 4
 
 #1. Predict Y
 # the model that returns probability distribution of possible label of the image
 # through the softmax layer
 # a batch_size x 10 tensor that represents the possibility of the digits
-Ylogits = tf.matmul(Y4,  W5) + B5       #(inputsize * 10 matrix)
+Ylogits = tf.matmul(Y4d,  W5) + B5       #(inputsize * 10 matrix)
 
 #2. Convert logit to predicted probabilities = Y_
 Y_ = tf.nn.softmax(Ylogits)             #(inputsize * 10 matrix)
@@ -63,7 +66,7 @@ entropy =   tf.nn.softmax_cross_entropy_with_logits(logits=Ylogits, labels=Y) #(
 loss    =   tf.reduce_mean(entropy)
 
 #4. define training operation
-# using adam optimizer with learning rate of 0.01 to minimize cost
+# using adam optimizer with learning rate of 0.005 to minimize cost
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
 
 #5. Only for logging -> accuracy of the trained model( Y Vs Y_ ), between 0 (worst) and 1 (best)
@@ -82,8 +85,10 @@ with tf.Session() as sess:
             o_,l_,a_,yl_,y__,cp_ = sess.run([optimizer,loss,accuracy,Ylogits,Y_,correct_prediction], feed_dict={X: X_batch, Y:Y_batch, pkeep: 0.75})
             print("Accuracy on train set in epoch: " + str(i) + " batch: " + str(_) + " is: " + str(a_*100) + "%")
 
-            #Run prediction on test set => Run session.run on last training run so that weights and biases are retained
-            #Dropout = 1, Use all neurons                                             
-            X_test, Y_test = MNIST.test.next_batch(batch_size)
-            acc_ = sess.run([accuracy], feed_dict={X: X_test, Y:Y_test, pkeep: 1})
-            print("Accuracy on test set in epoch: " + str(i) + " batch: " + str(_) + " is: " + str(acc_[0]*100) + "%")
+        #Run prediction on test set after full epoch
+        #=> Run session.run on last training run so that weights and biases are retained
+        #Dropout = 1, Use all neurons                                             
+        X_test = MNIST.test.images
+        Y_test = MNIST.test.labels
+        acc_ = sess.run([accuracy], feed_dict={X: X_test, Y: Y_test, pkeep: 1})
+        print("Accuracy on full test set in epoch: " + str(i) + "is: " + str(acc_[0]*100) + "%")

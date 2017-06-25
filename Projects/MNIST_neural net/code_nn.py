@@ -1,7 +1,7 @@
 #Hasan ->
 # Neural network classification on tensorflow
 # Character recognition on MNIST database using 4 layer Deep Neural Net
-# Achieved Test Set accuracy of 96%
+# Achieved Test Set accuracy of 97%
 import numpy as np
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
@@ -22,20 +22,19 @@ L4 = 200
 MNIST = input_data.read_data_sets("/data/mnist", one_hot=True)
 
 #Prepare placeholders
-X = tf.placeholder(tf.float32, [batch_size, 784], name="image")
-Y = tf.placeholder(tf.float32, [batch_size, 10], name="label")
-
+X = tf.placeholder(tf.float32, name="image")
+Y = tf.placeholder(tf.float32, name="label")
 
 #Create tensorflow variables for weight and biases => Variables are trainable
-W1 = tf.Variable(tf.truncated_normal([784, L1], stddev=0.1))        #(1,50)
+W1 = tf.Variable(tf.truncated_normal([784, L1], stddev=0.1))        #(784,L1)
 B1 = tf.Variable(tf.ones([L1])/10)                                  #Biases should be one in a ReLu NN
-W2 = tf.Variable(tf.truncated_normal([L1, L2], stddev=0.1))         #(50,40)
+W2 = tf.Variable(tf.truncated_normal([L1, L2], stddev=0.1))         #
 B2 = tf.Variable(tf.ones([L2])/10)                                  #Biases should be one in a ReLu NN
-W3 = tf.Variable(tf.truncated_normal([L2, L3], stddev=0.1))         #(40,40)
+W3 = tf.Variable(tf.truncated_normal([L2, L3], stddev=0.1))         #
 B3 = tf.Variable(tf.ones([L3])/10)                                  #Biases should be one in a ReLu NN
-W4 = tf.Variable(tf.truncated_normal([L3, L4], stddev=0.1))         #(40,20)
+W4 = tf.Variable(tf.truncated_normal([L3, L4], stddev=0.1))         #
 B4 = tf.Variable(tf.ones([L4])/10)                                  #Biases should be one in a ReLu NN
-W5 = tf.Variable(tf.truncated_normal([L4, 10], stddev=0.1))          #(20,10)
+W5 = tf.Variable(tf.truncated_normal([L4, 10], stddev=0.1))         #(L4,10)
 B5 = tf.Variable(tf.zeros([10]))                                    #Ten outputs
 
 #Create tensorflow computation code
@@ -59,7 +58,7 @@ entropy =   tf.nn.softmax_cross_entropy_with_logits(logits=Ylogits, labels=Y) #(
 loss    =   tf.reduce_mean(entropy)
 
 #4. define training operation
-# using adam optimizer with learning rate of 0.01 to minimize cost
+# using adam optimizer with learning rate of 0.005 to minimize cost
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
 
 #5. Only for logging -> accuracy of the trained model( Y Vs Y_ ), between 0 (worst) and 1 (best)
@@ -78,7 +77,8 @@ with tf.Session() as sess:
             o_,l_,a_,yl_,y__,cp_,e_ = sess.run([optimizer,loss,accuracy,Ylogits,Y_,correct_prediction,entropy], feed_dict={X: X_batch, Y:Y_batch})
             print("Accuracy on train set in epoch: " + str(i) + " batch: " + str(_) + " is: " + str(a_*100) + "%")
 
-            #Run prediction on test set => Run session.run on last training run so that weights and biases are retained
-            X_test, Y_test = MNIST.test.next_batch(batch_size)
-            acc_ = sess.run([accuracy], feed_dict={X: X_test, Y:Y_test})
-            print("Accuracy on test set in epoch: " + str(i) + " batch: " + str(_) + " is: " + str(acc_[0]*100) + "%")
+        #Run prediction on test set => Run session.run on last training run so that weights and biases are retained
+        X_test = MNIST.test.images
+        Y_test = MNIST.test.labels
+        acc_ = sess.run([accuracy], feed_dict={X: X_test, Y:Y_test})
+        print("Accuracy on full test set in epoch: " + str(i) + " is: " + str(acc_[0]*100) + "%")
