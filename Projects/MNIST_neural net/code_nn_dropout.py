@@ -1,7 +1,8 @@
 #Hasan ->
 # Neural network classification on tensorflow
 # Character recognition on MNIST database using 4 layer Deep Neural Net
-# Achieved Test Set accuracy of 96%
+# With Dropout setting
+# Achieved Test Set accuracy of 98%
 import numpy as np
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
@@ -22,9 +23,11 @@ L4 = 200
 MNIST = input_data.read_data_sets("/data/mnist", one_hot=True)
 
 #Prepare placeholders
+#For X, Y and dropout
 X = tf.placeholder(tf.float32, [batch_size, 784], name="image")
 Y = tf.placeholder(tf.float32, [batch_size, 10], name="label")
-
+#Dropout: feed in 1 when testing, 0.75 when training
+pkeep = tf.placeholder(tf.float32, name="Dropout_pkeep")
 
 #Create tensorflow variables for weight and biases => Variables are trainable
 W1 = tf.Variable(tf.truncated_normal([784, L1], stddev=0.1))        #(1,50)
@@ -40,7 +43,8 @@ B5 = tf.Variable(tf.zeros([10]))                                    #Ten outputs
 
 #Create tensorflow computation code
 Y1  = tf.nn.relu(tf.matmul(X,   W1) + B1)
-Y2  = tf.nn.relu(tf.matmul(Y1,  W2) + B2)
+Y1d = tf.nn.dropout(Y1, pkeep)                                      #Apply dropout probability in layer 1
+Y2  = tf.nn.relu(tf.matmul(Y1d,  W2) + B2)
 Y3  = tf.nn.relu(tf.matmul(Y2,  W3) + B3)
 Y4  = tf.nn.relu(tf.matmul(Y3,  W4) + B4)
 
@@ -75,10 +79,11 @@ with tf.Session() as sess:
     for i in range(n_epochs): # train the model n_epochs times
         for _ in range(n_batches):
             X_batch, Y_batch = MNIST.train.next_batch(batch_size)
-            o_,l_,a_,yl_,y__,cp_,e_ = sess.run([optimizer,loss,accuracy,Ylogits,Y_,correct_prediction,entropy], feed_dict={X: X_batch, Y:Y_batch})
+            o_,l_,a_,yl_,y__,cp_ = sess.run([optimizer,loss,accuracy,Ylogits,Y_,correct_prediction], feed_dict={X: X_batch, Y:Y_batch, pkeep: 0.75})
             print("Accuracy on train set in epoch: " + str(i) + " batch: " + str(_) + " is: " + str(a_*100) + "%")
 
             #Run prediction on test set => Run session.run on last training run so that weights and biases are retained
+            #Dropout = 1, Use all neurons                                             
             X_test, Y_test = MNIST.test.next_batch(batch_size)
-            acc_ = sess.run([accuracy], feed_dict={X: X_test, Y:Y_test})
+            acc_ = sess.run([accuracy], feed_dict={X: X_test, Y:Y_test, pkeep: 1})
             print("Accuracy on test set in epoch: " + str(i) + " batch: " + str(_) + " is: " + str(acc_[0]*100) + "%")
