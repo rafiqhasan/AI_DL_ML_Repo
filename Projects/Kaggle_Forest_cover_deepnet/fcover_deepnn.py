@@ -96,7 +96,34 @@ optimizer = tf.train.AdamOptimizer(learning_rate=learn_rate).minimize(loss)
 correct_prediction  = tf.equal(tf.argmax(Y, 1), tf.argmax(Y_, 1))
 accuracy            = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-# Start training iterations
+######Write graph to folder
+def save_graph(tfs):
+    export_path = 'out_graph'
+    builder     = tf.saved_model.builder.SavedModelBuilder(export_path)
+    tensor_info_x = tf.saved_model.utils.build_tensor_info(X)
+    tensor_info_y = tf.saved_model.utils.build_tensor_info(Y)
+
+    #Prepare prediction signature
+    prediction_signature = (
+      tf.saved_model.signature_def_utils.build_signature_def(
+          inputs={'forest_data_in': tensor_info_x},
+          outputs={'forest_cover_out': tensor_info_y},
+          method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))    
+
+    #Add variables
+    legacy_init_op = tf.group(tf.tables_initializer(), name='legacy_init_op')
+    builder.add_meta_graph_and_variables(
+      sess, [tf.saved_model.tag_constants.SERVING],
+      signature_def_map={
+          'predict_forest':
+              prediction_signature
+      },
+      legacy_init_op=legacy_init_op)
+
+    #Save .PB file
+    builder.save()
+
+###### Start training iterations
 with tf.Session() as sess:
     #writer = tf.summary.FileWriter('./graphs', sess.graph)
     sess.run(tf.global_variables_initializer())
@@ -153,3 +180,6 @@ with tf.Session() as sess:
         print("Current Test loss: " , str(lt_))
         print("Accuracy on last train set in epoch: " + str(i) + " was " + str(a_*100) + "% loss: " + str(l_))
         print("Accuracy on full test  set in epoch: " + str(i) + " is: " + str(acc_*100) + " %")
+
+    ############################################
+    save_graph(sess)
