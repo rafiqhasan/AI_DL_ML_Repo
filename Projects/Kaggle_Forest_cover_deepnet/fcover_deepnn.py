@@ -1,7 +1,7 @@
 ##Hasan Rafiq - GITHub
 # Neural network classification on tensorflow
 # Kaggle's forest cover prediction problem: To predict 7 types of forest cover as per input data
-# 4 layer Deep Neural Net
+# 6 layer Deep Neural Net
 # Use One hot encoder for output column hot encoding
 # With Dropout setting
 # With Dynamic learning rate
@@ -21,14 +21,16 @@ batch_size      = 30                #Size of temporary train set batched out fro
 n_epochs        = 2000              #Number of full train set repetitions of trainings
 epsilon         = 1e-3              #For Batch norm
 lambda_loss     = 0.01              #Lambda for L2 reg
-opt             = 1                 #0 for no norm or reg; 1 for L2; 2 for Batch norm
+opt             = 0                 #0 for no norm or reg; 1 for L2; 2 for Batch norm
 
 #Neural network structure
 #L0 = 784
 L1 = 100
-L2 = 300
-L3 = 300
-L4 = 200
+L2 = 100
+L3 = 100
+L4 = 100
+L5 = 100
+L6 = 100
 
 #Read train data file
 print("Loading data files ... ")
@@ -59,15 +61,19 @@ Y          = tf.cast(YonehotInt, tf.float32)
 #Create tensorflow variables for weight and biases => Variables are trainable
 #When using RELUs, make sure biases are initialised with small *positive* values for example 0.1
 W1 = tf.get_variable("W1", [54,L1], initializer = tf.contrib.layers.xavier_initializer())
-B1 = tf.Variable(tf.zeros([L1])/10000)                                   #Biases should be one in a ReLu NN
+B1 = tf.Variable(tf.zeros([L1]))                                   #Biases should be one in a ReLu NN
 W2 = tf.get_variable("W2", [L1,L2], initializer = tf.contrib.layers.xavier_initializer())
-B2 = tf.Variable(tf.zeros([L2])/10000)                                   #Biases should be one in a ReLu NN
+B2 = tf.Variable(tf.zeros([L2]))                                   #Biases should be one in a ReLu NN
 W3 = tf.get_variable("W3", [L2,L3], initializer = tf.contrib.layers.xavier_initializer())
-B3 = tf.Variable(tf.zeros([L3])/10000)                                   #Biases should be one in a ReLu NN
+B3 = tf.Variable(tf.zeros([L3]))                                   #Biases should be one in a ReLu NN
 W4 = tf.get_variable("W4", [L3,L4], initializer = tf.contrib.layers.xavier_initializer())
-B4 = tf.Variable(tf.zeros([L4])/10000)                                   #Biases should be one in a ReLu NN
-W5 = tf.get_variable("W5", [L4,7], initializer = tf.contrib.layers.xavier_initializer())
-B5 = tf.Variable(tf.zeros([7]))                                         #Seven outputs
+B4 = tf.Variable(tf.zeros([L4]))                                   #Biases should be one in a ReLu NN
+W5 = tf.get_variable("W5", [L4,L5], initializer = tf.contrib.layers.xavier_initializer())
+B5 = tf.Variable(tf.zeros([L5]))                                      
+W6 = tf.get_variable("W6", [L5,L6], initializer = tf.contrib.layers.xavier_initializer())
+B6 = tf.Variable(tf.zeros([L6]))                                       
+W7 = tf.get_variable("W7", [L6,7], initializer = tf.contrib.layers.xavier_initializer())
+B7 = tf.Variable(tf.zeros([7]))                                         
 
 #Create tensorflow computation code
 if opt == 2:
@@ -91,12 +97,16 @@ Y3  = tf.nn.relu(tf.matmul(Y2d,  W3) + B3)
 Y3d = tf.nn.dropout(Y3, pkeep)                                      #Apply dropout probability in layer 3
 Y4  = tf.nn.relu(tf.matmul(Y3d,  W4) + B4)
 Y4d = tf.nn.dropout(Y4, pkeep)                                      #Dropout not applied in this layer
+Y5  = tf.nn.relu(tf.matmul(Y4d,  W5) + B5)
+Y5d = tf.nn.dropout(Y5, pkeep)                                      #Dropout not applied in this layer
+Y6  = tf.nn.relu(tf.matmul(Y5d,  W6) + B6)
+Y6d = tf.nn.dropout(Y6, pkeep)                                      #Dropout not applied in this layer
 
 #1. Predict Y
 # the model that returns probability distribution of possible label of the image
 # through the softmax layer
 # a batch_size x 10 tensor that represents the possibility of the digits
-Ylogits = tf.matmul(Y4d,  W5) + B5       #(inputsize * 10 matrix)
+Ylogits = tf.matmul(Y6d,  W7) + B7       #(inputsize * 10 matrix)
 
 #2. Convert logit to predicted probabilities = Y_
 Y_ = tf.nn.softmax(Ylogits)              #(inputsize * 10 matrix)
