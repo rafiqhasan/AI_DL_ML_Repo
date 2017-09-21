@@ -5,7 +5,10 @@
 # Use One hot encoder for output column hot encoding
 # With Dropout setting
 # With Dynamic learning rate
-# Achieved Final Test Set accuracy of 86% => Can be improvised with more data
+# Achieved Final Val Set accuracy of 84%
+# Option to apply L2 Reg
+# Option to apply batch norm
+# Option to apply dropout
 import numpy as np
 import tensorflow as tf
 import xlrd
@@ -16,10 +19,13 @@ DATA_FILE = "train_set.xlsx"
 TEST_FILE = "test_set.xlsx"
 batch_size      = 30                #Size of temporary train set batched out from full train set
 n_epochs        = 2000              #Number of full train set repetitions of trainings
+epsilon         = 1e-3              #For Batch norm
+lambda_loss     = 0.01              #Lambda for L2 reg
+opt             = 1                 #0 for no norm or reg; 1 for L2; 2 for Batch norm
 
 #Neural network structure
 #L0 = 784
-L1 = 400
+L1 = 100
 L2 = 300
 L3 = 300
 L4 = 200
@@ -41,7 +47,6 @@ test_data = np.asarray([sheet.row_values(i) for i in range(1, sheet.nrows)])
 #Prepare placeholders
 #For X, Y, learning rate and dropout
 X           = tf.placeholder(tf.float32,  name="data")
-Y           = tf.placeholder(tf.float32,  name="label_hotencoded")
 learn_rate  = tf.placeholder(tf.float32,  name="learn_rate")
 Y_un_he     = tf.placeholder(tf.int32,    name="un_encoded")  #Takes unencoded value
 #Dropout: feed in 1 when testing, 0.75 when training
@@ -49,24 +54,37 @@ pkeep       = tf.placeholder(tf.float32, name="Dropout_pkeep")
 
 #Tensorflow operation: Do one hot encoding on Y labels and cast to Float32
 YonehotInt = tf.one_hot(Y_un_he, depth=7)
-Yonehot    = tf.cast(YonehotInt, tf.float32)
+Y          = tf.cast(YonehotInt, tf.float32)
 
 #Create tensorflow variables for weight and biases => Variables are trainable
 #When using RELUs, make sure biases are initialised with small *positive* values for example 0.1
-W1 = tf.Variable(tf.random_uniform([54, L1], minval=-1, maxval=1))         #(54,L1)
-B1 = tf.Variable(tf.ones([L1])/10000)                                  #Biases should be one in a ReLu NN
-W2 = tf.Variable(tf.random_uniform([L1, L2], minval=-1, maxval=1))         #
-B2 = tf.Variable(tf.ones([L2])/10000)                                  #Biases should be one in a ReLu NN
-W3 = tf.Variable(tf.random_uniform([L2, L3], minval=-1, maxval=1))         #
-B3 = tf.Variable(tf.ones([L3])/10000)                                  #Biases should be one in a ReLu NN
-W4 = tf.Variable(tf.random_uniform([L3, L4], minval=-1, maxval=1))         #
-B4 = tf.Variable(tf.ones([L4])/10000)                                  #Biases should be one in a ReLu NN
-W5 = tf.Variable(tf.truncated_normal([L4, 7], stddev=0.1))          #(L4,7)
-B5 = tf.Variable(tf.zeros([7]))                                     #Seven outputs
+W1 = tf.get_variable("W1", [54,L1], initializer = tf.contrib.layers.xavier_initializer())
+B1 = tf.Variable(tf.zeros([L1])/10000)                                   #Biases should be one in a ReLu NN
+W2 = tf.get_variable("W2", [L1,L2], initializer = tf.contrib.layers.xavier_initializer())
+B2 = tf.Variable(tf.zeros([L2])/10000)                                   #Biases should be one in a ReLu NN
+W3 = tf.get_variable("W3", [L2,L3], initializer = tf.contrib.layers.xavier_initializer())
+B3 = tf.Variable(tf.zeros([L3])/10000)                                   #Biases should be one in a ReLu NN
+W4 = tf.get_variable("W4", [L3,L4], initializer = tf.contrib.layers.xavier_initializer())
+B4 = tf.Variable(tf.zeros([L4])/10000)                                   #Biases should be one in a ReLu NN
+W5 = tf.get_variable("W5", [L4,7], initializer = tf.contrib.layers.xavier_initializer())
+B5 = tf.Variable(tf.zeros([7]))                                         #Seven outputs
 
 #Create tensorflow computation code
-Y1  = tf.nn.relu(tf.matmul(X,   W1) + B1)
-Y1d = tf.nn.dropout(Y1, pkeep)                                      #Apply dropout probability in layer 1
+if opt == 2:
+####Start batch normalization code in layer1
+# Layer 1 with BN, using Tensorflows built-in BN function X -> Y1_MAT -> Batch norm -> Y1_BN -> Y1
+    Y1_MAT  = tf.matmul(X,   W1) + B1
+    batch_mean, batch_var = tf.nn.moments(Y1_MAT,[0])
+    scale   = tf.Variable(tf.ones([L1])) #Gamma - Multiplier
+    beta    = tf.Variable(tf.zeros([L1])) #Beta - Offset
+    Y1_BN   = tf.nn.batch_normalization(Y1_MAT,batch_mean,batch_var,beta,scale,epsilon)
+    Y1      = tf.nn.relu(Y1_BN)
+    Y1d     = Y1
+####End batch normalization code in layer1
+else:
+    Y1  = tf.nn.relu(tf.matmul(X,   W1) + B1)
+    Y1d = tf.nn.dropout(Y1, pkeep)                                  #Apply dropout probability in layer 2
+
 Y2  = tf.nn.relu(tf.matmul(Y1d,  W2) + B2)
 Y2d = tf.nn.dropout(Y2, pkeep)                                      #Apply dropout probability in layer 2
 Y3  = tf.nn.relu(tf.matmul(Y2d,  W3) + B3)
@@ -85,8 +103,19 @@ Y_ = tf.nn.softmax(Ylogits)              #(inputsize * 10 matrix)
 
 #3. use softmax cross entropy with logits as the loss function
 # compute mean cross entropy, softmax is applied internally
-entropy =   tf.nn.softmax_cross_entropy_with_logits(logits=Ylogits, labels=Y) #(input * 1 matrix )
-loss    =   tf.reduce_mean(entropy)
+entropy     =   tf.nn.softmax_cross_entropy_with_logits(logits=Ylogits, labels=Y) #(input * 1 matrix )
+loss_unreg  =   tf.reduce_mean(entropy)
+
+#Apply L2 regularization and add to loss_unreg
+if opt == 1:
+    l2_loss = lambda_loss * (tf.nn.l2_loss(W1) + 
+                                               tf.nn.l2_loss(W2) +
+                                               tf.nn.l2_loss(W3) +
+                                               tf.nn.l2_loss(W4) +
+                                               tf.nn.l2_loss(W5))
+    loss = loss_unreg + l2_loss
+else:    
+    loss = loss_unreg
 
 #4. define training operation
 # using adam optimizer with learning rate of 0.005 to minimize cost
@@ -101,7 +130,7 @@ def save_graph(tfs):
     export_path = 'out_graph'
     builder     = tf.saved_model.builder.SavedModelBuilder(export_path)
     tensor_info_x = tf.saved_model.utils.build_tensor_info(X)
-    tensor_info_y = tf.saved_model.utils.build_tensor_info(Y)
+    tensor_info_y = tf.saved_model.utils.build_tensor_info(Y_un_he)
 
     #Prepare prediction signature
     prediction_signature = (
@@ -141,6 +170,8 @@ with tf.Session() as sess:
         Xdata = np.mat(Xdata)               #[X,54] => Conversion to matrix
         Ydata = rand_data[:,54]             #[Y,1]  => Output column as array
 
+        tot_train_acc = 0
+        tot_train_loss = 0
         for b in range(n_batches):
             batch_end   = batch_start + batch_size
             X_batch     = Xdata[batch_start:batch_end,:]
@@ -149,16 +180,18 @@ with tf.Session() as sess:
             #print(Y_batch.shape)
 
             # Dynamic LR => learning rate decay
-            max_learning_rate   = 0.0001
+            max_learning_rate   = 0.0005
             min_learning_rate   = 0.000001
-            decay_speed         = 400.0 
+            decay_speed         = 150.0 
             lr = min_learning_rate + (max_learning_rate - min_learning_rate) * math.exp(-i/decay_speed)
 
             #Run hot encoding operation
-            Y_batch_enc = sess.run(Yonehot, feed_dict={Y_un_he: Y_batch})
+            #Y_batch_enc = sess.run(Yonehot, feed_dict={Y_un_he: Y_batch})
 
             #Run training operation
-            o_,a_,l_,cp = sess.run([optimizer,accuracy,loss,correct_prediction], feed_dict={X: X_batch, Y: Y_batch_enc, pkeep: 1, learn_rate: lr })
+            o_,a_,l_,cp = sess.run([optimizer,accuracy,loss,correct_prediction], feed_dict={X: X_batch, Y_un_he: Y_batch, pkeep: 1, learn_rate: lr })
+            tot_train_acc = tot_train_acc + a_      #complete train set accuracy
+            tot_train_loss = tot_train_loss + l_    #complete train set loss
             #print(l_)
             #print("Accuracy on train set in epoch: " + str(i) + " batch: " + str(b) + " is: " + str(a_*100) + "% loss: " + str(l_))
 
@@ -173,13 +206,13 @@ with tf.Session() as sess:
         Yt_data = test_data[:,54]             #[Y,1]  => Output column as array
 
         #Run operations=> Hot encoding + prediction accuracy
-        Yt_batch_enc = sess.run(Yonehot, feed_dict={Y_un_he: Yt_data})        
-        acc_,lt_     = sess.run([accuracy,loss], feed_dict={X: Xt_data, Y: Yt_batch_enc, pkeep: 1})
+        #Yt_batch_enc = sess.run(Yonehot, feed_dict={Y_un_he: Yt_data})        
+        acc_,lt_     = sess.run([accuracy,loss], feed_dict={X: Xt_data, Y_un_he: Yt_data, pkeep: 1}) 
         print("Last learning rate: ", str(lr))
-        print("Last Training loss: " , str(l_))
-        print("Current Test loss: " , str(lt_))
-        print("Accuracy on last train set in epoch: " + str(i) + " was " + str(a_*100) + "% loss: " + str(l_))
-        print("Accuracy on full test  set in epoch: " + str(i) + " is: " + str(acc_*100) + " %")
+        print("Epoch " + str(i) + " Training loss: " , str(tot_train_loss / n_batches))
+        print("Epoch " + str(i) + " Test loss: " , str(lt_))
+        print("Epoch " + str(i) + " Train accuracy: " + str(tot_train_acc * 100/n_batches) + " %")
+        print("Epoch " + str(i) + " Validation accuracy:  " + str(acc_*100) + " %")
 
     ############################################
     save_graph(sess)
