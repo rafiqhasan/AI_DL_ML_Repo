@@ -2,9 +2,8 @@
 
 This repository is my cummulative effort on Tensorflow learnings and exploration
 
-1. Count number of people in an Image using Tensorflow's object detection model
-1. MNIST character recognition using deep neural network
-2. Fire and theft prediction regression problem using Linear regression
-3. Fire and theft prediction regression problem using Tensorflow Neuralnet
+1. Tensorflow GCP and Scalable Pipelines with Feature engineering
+2. Keras DL projects - Audio classification etc.
+3. SkLearn Pipelines
 
 and many more are being added !
