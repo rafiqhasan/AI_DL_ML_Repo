@@ -13,6 +13,7 @@ INPUT_FILE = None  # set from task.py
 EVAL_FILE = None
 
 # Define some hyperparameters
+EVAL_INTERVAL = 45
 TRAIN_STEPS = 10000
 EVAL_STEPS = None
 BATCH_SIZE = 512
@@ -144,8 +145,8 @@ add_engineered = create_add_engineered_fn()
 def train_and_evaluate(output_dir):    
 ##### Create Canned estimator instance
     ## setting the checkpoint interval to be much lower for this task
-#     run_config = tf.estimator.RunConfig(save_checkpoints_secs = 40, 
-#                                         keep_checkpoint_max = 3)
+    run_config = tf.estimator.RunConfig(save_checkpoints_secs = EVAL_INTERVAL, 
+                                        keep_checkpoint_max = 3)
     
     estimator = tf.estimator.DNNClassifier(feature_columns=create_feature_cols(),
                                           model_dir = output_dir,
@@ -155,8 +156,8 @@ def train_and_evaluate(output_dir):
                                                         64,64,64,64,64,64,
                                                         32],
                                           dropout = 0.2,
-                                          optimizer=tf.train.AdamOptimizer(learning_rate=0.001))
-#                                           config = run_config)
+                                          optimizer=tf.train.AdamOptimizer(learning_rate=0.001),
+                                          config = run_config)
     train_spec = tf.estimator.TrainSpec(input_fn = read_dataset(
                                                 file_pattern = INPUT_FILE,
                                                 mode = tf.estimator.ModeKeys.TRAIN,
@@ -170,5 +171,5 @@ def train_and_evaluate(output_dir):
                                     steps = EVAL_STEPS, 
                                     exporters = exp,
                                     start_delay_secs = 20, # start evaluating after N seconds, 
-                                    throttle_secs = 45)  # evaluate every N seconds
+                                    throttle_secs = EVAL_INTERVAL)  # evaluate every N seconds
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
